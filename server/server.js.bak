@@ -1,0 +1,82 @@
+import express from 'express';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import connectDB from './config/db.js';
+import installerRoutes from './routes/installer.js';
+import questionnaireRoutes from './routes/questionnaires.js';
+import settingsRoutes from './routes/settings.js';
+import reportsRoutes from './routes/reports.js';
+import userRoutes from './routes/users.js';
+import predictRoutes from './routes/predict.js';
+import dataRoutes from './routes/data.js';
+import dashboardRoutes from './routes/dashboard.js';
+import assessmentRoutes from './routes/assessments.js';
+import noteRoutes from './routes/notes.js';
+import analysisRoutes from './routes/analysis.js';
+import Setting from './models/Setting.js';
+
+// Load env vars
+dotenv.config();
+
+const app = express();
+const port = process.env.PORT || 3001;
+app.use(express.json());
+
+// Determine if the app is installed by checking for the lock file
+const isInstalled = () => {
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    return fs.existsSync(path.join(currentDir, 'installer.lock'));
+};
+
+// Installer and status routes are always available
+app.use('/api/installer', installerRoutes);
+app.get('/api/status', (req, res) => {
+    res.json({ installed: isInstalled() });
+});
+
+
+const startServer = async () => {
+    if (!isInstalled()) {
+        console.log('Application not installed. Running in installer mode.');
+        // If not installed, we only want the installer routes to be available.
+        // The main app routes will not be mounted.
+    } else {
+        try {
+            console.log('Application is installed. Starting main server...');
+            // Connect to database
+            await connectDB();
+
+            // Seed initial settings
+            await Setting.seedInitialSettings();
+
+            // Mount main application API Routes
+            app.use('/api/questionnaires', questionnaireRoutes);
+            app.use('/api/settings', settingsRoutes);
+            app.use('/api/reports', reportsRoutes);
+            app.use('/api/users', userRoutes);
+            app.use('/api/predict', predictRoutes);
+            app.use('/api/data', dataRoutes);
+            app.use('/api/dashboard', dashboardRoutes);
+            app.use('/api/assessments', assessmentRoutes);
+            app.use('/api/notes', noteRoutes);
+            app.use('/api/analysis', analysisRoutes);
+
+            console.log('Main application routes mounted.');
+
+        } catch (error) {
+            console.error('Failed to start main application:', error);
+            // We don't exit the process here, so the installer routes remain available
+            // in case the database connection fails after installation.
+        }
+    }
+
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+        if (!isInstalled()) {
+            console.log('Navigate to the frontend to begin installation.');
+        }
+    });
+};
+
+startServer();

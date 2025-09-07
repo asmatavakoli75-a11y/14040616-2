@@ -1,0 +1,5 @@
+{
+  "watch": ["*.js", "routes", "models", "config", "controllers", "restart.trigger"],
+  "ext": "js,json",
+  "ignore": []
+}

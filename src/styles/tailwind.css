@@ -1,0 +1,355 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Core System Colors */
+    --color-background: #FAFBFC; /* gray-50 */
+    --color-foreground: #1E293B; /* slate-800 */
+    --color-border: #E2E8F0; /* slate-200 */
+    --color-input: #FFFFFF; /* white */
+    --color-ring: #2563EB; /* blue-600 */
+    
+    /* Card & Surface Colors */
+    --color-card: #FFFFFF; /* white */
+    --color-card-foreground: #1E293B; /* slate-800 */
+    --color-popover: #FFFFFF; /* white */
+    --color-popover-foreground: #1E293B; /* slate-800 */
+    
+    /* Muted Colors */
+    --color-muted: #F1F5F9; /* slate-100 */
+    --color-muted-foreground: #64748B; /* slate-500 */
+    
+    /* Primary Colors */
+    --color-primary: #2563EB; /* blue-600 */
+    --color-primary-foreground: #FFFFFF; /* white */
+    
+    /* Secondary Colors */
+    --color-secondary: #64748B; /* slate-500 */
+    --color-secondary-foreground: #FFFFFF; /* white */
+    
+    /* Accent Colors */
+    --color-accent: #059669; /* emerald-600 */
+    --color-accent-foreground: #FFFFFF; /* white */
+    
+    /* State Colors */
+    --color-success: #10B981; /* emerald-500 */
+    --color-success-foreground: #FFFFFF; /* white */
+    --color-warning: #F59E0B; /* amber-500 */
+    --color-warning-foreground: #FFFFFF; /* white */
+    --color-error: #DC2626; /* red-600 */
+    --color-error-foreground: #FFFFFF; /* white */
+    --color-destructive: #DC2626; /* red-600 */
+    --color-destructive-foreground: #FFFFFF; /* white */
+    
+    /* Medical Theme Specific Colors */
+    --color-surface: #FFFFFF; /* white */
+    --color-text-primary: #1E293B; /* slate-800 */
+    --color-text-secondary: #64748B; /* slate-500 */
+    --color-therapeutic-green: #059669; /* emerald-600 */
+    --color-medical-blue: #2563EB; /* blue-600 */
+    
+    /* Shadow Variables */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+    
+    /* Border Radius */
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* RTL Support */
+  [dir="rtl"] {
+    font-family: 'Vazirmatn', sans-serif;
+  }
+  
+  [dir="ltr"] {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  /* Typography Classes */
+  .font-heading {
+    font-family: 'Vazirmatn', sans-serif;
+  }
+  
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .font-caption {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+  
+  .font-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  /* Clinical Shadows */
+  .shadow-clinical {
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .shadow-clinical-md {
+    box-shadow: var(--shadow-md);
+  }
+  
+  .shadow-clinical-lg {
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* Animation Classes */
+  .transition-clinical {
+    transition: all 200ms ease-out;
+  }
+  
+  .transition-clinical-slow {
+    transition: all 300ms ease-out;
+  }
+  
+  .transition-page {
+    transition: all 400ms ease-out;
+  }
+  
+  /* Focus States for Accessibility */
+  .focus-clinical:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  
+  /* Medical Progress Indicators */
+  .progress-ring {
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+  }
+  
+  /* Clinical Form Styles */
+  .form-clinical {
+    @apply space-y-6 p-6 bg-card rounded-lg shadow-clinical;
+  }
+  
+  /* Assessment Progress Styles */
+  .assessment-step {
+    @apply relative flex items-center justify-center w-8 h-8 rounded-full border-2 transition-clinical;
+  }
+  
+  .assessment-step.completed {
+    @apply bg-success border-success text-success-foreground;
+  }
+  
+  .assessment-step.current {
+    @apply bg-primary border-primary text-primary-foreground;
+  }
+  
+  .assessment-step.pending {
+    @apply bg-background border-border text-muted-foreground;
+  }
+}
+
+@layer components {
+  /* Clinical Button Variants */
+.btn-clinical  {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-clinical disabled:pointer-events-none disabled:opacity-50;
+  }
+.btn-clinical-primary  {
+    @apply btn-clinical bg-primary text-primary-foreground;
+  }
+.btn-clinical-secondary  {
+    @apply btn-clinical bg-secondary text-secondary-foreground;
+  }
+.btn-clinical-success  {
+    @apply btn-clinical bg-success text-success-foreground;
+  }
+  
+  /* Clinical Card Styles */
+  .card-clinical {
+    @apply bg-card text-card-foreground rounded-lg border shadow-clinical;
+  }
+  
+  .card-clinical-elevated {
+    @apply card-clinical shadow-clinical-md;
+  }
+  
+  /* Navigation Styles */
+  .nav-clinical {
+    @apply bg-card border-b border-border shadow-clinical;
+  }
+  
+  .nav-item-clinical {
+    @apply flex items-center px-4 py-2 text-sm font-medium text-foreground hover:bg-muted hover:text-foreground transition-clinical;
+  }
+.nav-item-clinical.active  {
+    @apply text-primary border-r-2 border-primary;
+  }
+  
+  /* Medical Data Display */
+  .data-clinical {
+    @apply font-data text-sm bg-muted px-2 py-1 rounded;
+  }
+  
+  /* Progress Indicators */
+  .progress-clinical {
+    @apply w-full bg-muted rounded-full h-2;
+  }
+  
+  .progress-clinical-bar {
+    @apply bg-primary h-2 rounded-full transition-all duration-300 ease-out;
+  }
+  
+  /* Assessment Specific Styles */
+  .questionnaire-section {
+    @apply bg-card rounded-lg border p-6 space-y-4 shadow-clinical;
+  }
+  
+  .questionnaire-header {
+    @apply flex items-center justify-between pb-4 border-b border-border;
+  }
+  
+  /* Clinical Status Badges */
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+.status-badge-success  {
+    @apply status-badge text-success;
+  }
+.status-badge-warning  {
+    @apply status-badge text-warning;
+  }
+.status-badge-error  {
+    @apply status-badge text-error;
+  }
+  
+  /* Mobile Responsive Utilities */
+  .mobile-nav-overlay {
+    @apply fixed inset-0 bg-black/50 z-40 lg:hidden;
+  }
+  
+  .mobile-nav-panel {
+    @apply fixed inset-y-0 left-0 w-64 bg-card shadow-clinical-lg transform transition-transform duration-300 ease-out z-50;
+  }
+}
+
+@layer utilities {
+  /* RTL/LTR Utilities */
+  .rtl\:text-right[dir="rtl"] {
+    text-align: right;
+  }
+  
+  .rtl\:text-left[dir="rtl"] {
+    text-align: left;
+  }
+  
+  .ltr\:text-left[dir="ltr"] {
+    text-align: left;
+  }
+  
+  .ltr\:text-right[dir="ltr"] {
+    text-align: right;
+  }
+  
+  /* Clinical Spacing */
+  .space-clinical {
+    @apply space-y-6;
+  }
+  
+  .space-clinical-sm {
+    @apply space-y-4;
+  }
+  
+  .space-clinical-lg {
+    @apply space-y-8;
+  }
+  
+  /* Medical Grid Layouts */
+  .grid-clinical {
+    @apply grid gap-6;
+  }
+  
+  .grid-clinical-2 {
+    @apply grid-clinical grid-cols-1 md:grid-cols-2;
+  }
+  
+  .grid-clinical-3 {
+    @apply grid-clinical grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+  
+  /* Assessment Layout Utilities */
+  .assessment-container {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .assessment-content {
+    @apply space-y-8 py-8;
+  }
+  
+  /* Clinical Animation Utilities */
+  .animate-fade-in {
+    animation: fadeIn 300ms ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 300ms ease-out;
+  }
+  
+  .animate-progress {
+    animation: progress 400ms ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width);
+  }
+}
+
+/* Print Styles for Medical Reports */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-clinical {
+    @apply text-black bg-white;
+  }
+  
+  .card-clinical {
+    @apply border border-gray-300 shadow-none;
+  }
+}
