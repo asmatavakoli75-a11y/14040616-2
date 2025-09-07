@@ -2,22 +2,15 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import Input from '../../../components/ui/Input';
 
 const DatabaseForm = ({ onSubmit }) => {
-    const [formData, setFormData] = useState({
-        dbHost: 'localhost',
-        dbName: 'clbp_db',
-        dbUser: 'root',
-        dbPass: '',
-    });
+    const [mongoUri, setMongoUri] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [testSuccess, setTestSuccess] = useState(false);
 
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setMongoUri(e.target.value);
         setTestSuccess(false); // Reset success on change
     };
 
@@ -26,7 +19,7 @@ const DatabaseForm = ({ onSubmit }) => {
         setError('');
         setTestSuccess(false);
         try {
-            await axios.post('/api/installer/test-db', formData);
+            await axios.post('/api/installer/test-db', { mongoUri });
             setTestSuccess(true);
             setError('');
         } catch (err) {
@@ -39,7 +32,7 @@ const DatabaseForm = ({ onSubmit }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (testSuccess) {
-            onSubmit(formData);
+            onSubmit({ mongoUri });
         } else {
             setError('Please test the database connection successfully before proceeding.');
         }
@@ -49,39 +42,22 @@ const DatabaseForm = ({ onSubmit }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
             <h2 className="text-xl font-semibold text-foreground">Database Configuration</h2>
             <p className="text-sm text-muted-foreground">
-                Please provide your database connection details. These will be written to the server's <code>.env</code> file.
+                Please provide your full MongoDB Connection String URI (e.g., from MongoDB Atlas). This will be written to the server's <code>.env</code> file.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                    label="Database Host"
-                    name="dbHost"
-                    value={formData.dbHost}
+            <div>
+                <label htmlFor="mongoUri" className="block text-sm font-medium text-foreground mb-1">
+                    MongoDB Connection String
+                </label>
+                <textarea
+                    id="mongoUri"
+                    name="mongoUri"
+                    rows="4"
+                    className="block w-full px-3 py-2 bg-background border border-border rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                    value={mongoUri}
                     onChange={handleInputChange}
+                    placeholder="mongodb+srv://user:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority"
                     required
-                />
-                <Input
-                    label="Database Name"
-                    name="dbName"
-                    value={formData.dbName}
-                    onChange={handleInputChange}
-                    required
-                />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                    label="Database User"
-                    name="dbUser"
-                    value={formData.dbUser}
-                    onChange={handleInputChange}
-                    required
-                />
-                <Input
-                    label="Database Password"
-                    name="dbPass"
-                    type="password"
-                    value={formData.dbPass}
-                    onChange={handleInputChange}
                 />
             </div>
 
