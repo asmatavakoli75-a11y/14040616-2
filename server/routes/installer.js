@@ -8,7 +8,6 @@ const router = express.Router();
 
 // Helper function to get the path to the .env file
 const getEnvPath = () => {
-    // __dirname is not available in ES modules, so we use import.meta.url
     const currentDir = path.dirname(new URL(import.meta.url).pathname);
     return path.join(currentDir, '..', '.env');
 };
@@ -17,8 +16,11 @@ const getEnvPath = () => {
 // @route   POST /api/installer/test-db
 // @access  Public
 router.post('/test-db', async (req, res) => {
-    const { dbHost, dbName, dbUser, dbPass } = req.body;
-    const mongoUri = `mongodb://${dbUser}:${dbPass}@${dbHost}/${dbName}?authSource=admin`;
+    const { mongoUri } = req.body;
+
+    if (!mongoUri) {
+        return res.status(400).json({ message: 'MongoDB URI is required.' });
+    }
 
     try {
         const tempConnection = await mongoose.createConnection(mongoUri, {
@@ -38,8 +40,10 @@ router.post('/test-db', async (req, res) => {
 // @route   POST /api/installer/write-config
 // @access  Public
 router.post('/write-config', async (req, res) => {
-    const { dbHost, dbName, dbUser, dbPass } = req.body;
-    const mongoUri = `mongodb://${dbUser}:${dbPass}@${dbHost}/${dbName}?authSource=admin`;
+    const { mongoUri } = req.body;
+    if (!mongoUri) {
+        return res.status(400).json({ message: 'MongoDB URI is required.' });
+    }
     const jwtSecret = [...Array(32)].map(() => Math.random().toString(36)[2]).join('');
 
     const envContent = `
