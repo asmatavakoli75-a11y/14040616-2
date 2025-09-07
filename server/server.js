@@ -77,17 +77,6 @@ app.post('/api/admin/restart', (req, res) => {
     res.status(500).json({ error: 'restart_failed', details: e?.message });
   }
 });
-    }
-    res.json({ ok: true, message: 'Restarting process now' });
-    setTimeout(() => {
-      console.log('Admin-initiated restart via /api/admin/restart');
-      process.exit(0); // nodemon/system manager restarts us
-    }, 50);
-  } catch (e) {
-    console.error('Restart endpoint error:', e);
-    res.status(500).json({ error: 'restart_failed', details: e?.message });
-  }
-});
 
 // Admin diagnostic: GET /api/admin/env (redacts secrets)
 app.get('/api/admin/env', (req, res) => {
