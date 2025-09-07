@@ -19,6 +19,7 @@ import UnivariateAnalysisPanel from './components/UnivariateAnalysisPanel';
 import AdminToolbar from './components/AdminToolbar';
 import AdvancedFilters from './components/AdvancedFilters';
 import SettingsPanel from './components/SettingsPanel';
+const AdminDashboard = () => {
   const currentLanguage = useLanguage();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
