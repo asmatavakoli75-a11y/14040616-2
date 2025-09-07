@@ -5,10 +5,10 @@ import Select from './Select';
 import Icon from '../AppIcon';
 import Checkbox from './Checkbox';
 
-const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, currentLanguage }) => {
+const QuestionEditor = ({ isOpen, onClose, onSave, question, currentLanguage }) => {
   const [text, setText] = useState('');
   const [questionType, setQuestionType] = useState('text');
-  const [options, setOptions] = useState(['']);
+  const [options, setOptions] = useState([{ text: '', score: 0 }]);
   const [isRequired, setIsRequired] = useState(false);
   const [minScale, setMinScale] = useState(1);
   const [maxScale, setMaxScale] = useState(5);
@@ -19,7 +19,11 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
     if (question) {
       setText(question.text || '');
       setQuestionType(question.questionType || 'text');
-      setOptions(question.options && question.options.length > 0 ? question.options : ['']);
+      // Ensure options are in the correct format, even if they are just strings from old data
+      const formattedOptions = (question.options || []).map(opt =>
+        typeof opt === 'string' ? { text: opt, score: 0 } : opt
+      );
+      setOptions(formattedOptions.length > 0 ? formattedOptions : [{ text: '', score: 0 }]);
       setIsRequired(question.isRequired || false);
       setMinScale(question.minScale || 1);
       setMaxScale(question.maxScale || 5);
@@ -29,7 +33,7 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
       // Reset form for new question
       setText('');
       setQuestionType('text');
-      setOptions(['']);
+      setOptions([{ text: '', score: 0 }]);
       setIsRequired(false);
       setMinScale(1);
       setMaxScale(5);
@@ -38,14 +42,14 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
     }
   }, [question, isOpen]);
 
-  const handleOptionChange = (index, value) => {
+  const handleOptionChange = (index, field, value) => {
     const newOptions = [...options];
-    newOptions[index] = value;
+    newOptions[index][field] = value;
     setOptions(newOptions);
   };
 
   const addOption = () => {
-    setOptions([...options, '']);
+    setOptions([...options, { text: '', score: 0 }]);
   };
 
   const removeOption = (index) => {
@@ -59,7 +63,9 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
       text,
       questionType,
       isRequired,
-      options: ['multiple-choice', 'checkboxes', 'dropdown'].includes(questionType) ? options.filter(opt => opt.trim() !== '') : [],
+      options: ['multiple-choice', 'checkboxes', 'dropdown'].includes(questionType)
+        ? options.filter(opt => opt.text.trim() !== '')
+        : [],
       minScale: questionType === 'linear-scale' ? minScale : undefined,
       maxScale: questionType === 'linear-scale' ? maxScale : undefined,
       minLabel: questionType === 'linear-scale' ? minLabel : undefined,
@@ -109,13 +115,24 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
 
           {['multiple-choice', 'checkboxes', 'dropdown'].includes(questionType) && (
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-foreground">{currentLanguage === 'fa' ? 'گزینه‌ها' : 'Options'}</label>
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <label className="block text-sm font-medium text-foreground flex-grow">{currentLanguage === 'fa' ? 'گزینه‌ها' : 'Options'}</label>
+                <label className="block text-sm font-medium text-foreground w-24 text-center">{currentLanguage === 'fa' ? 'امتیاز' : 'Score'}</label>
+                <div className="w-10"></div> {/* Spacer for delete button */}
+              </div>
               {options.map((option, index) => (
                 <div key={index} className="flex items-center space-x-2 rtl:space-x-reverse">
                   <Input
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    value={option.text}
+                    onChange={(e) => handleOptionChange(index, 'text', e.target.value)}
                     placeholder={`${currentLanguage === 'fa' ? 'گزینه' : 'Option'} ${index + 1}`}
+                    className="flex-grow"
+                  />
+                  <Input
+                    type="number"
+                    value={option.score}
+                    onChange={(e) => handleOptionChange(index, 'score', parseInt(e.target.value, 10) || 0)}
+                    className="w-24 text-center"
                   />
                   <Button variant="ghost" size="icon" onClick={() => removeOption(index)} disabled={options.length <= 1}>
                     <Icon name="Trash2" size={16} className="text-muted-foreground"/>
@@ -161,20 +178,6 @@ const QuestionEditor = ({ isOpen, onClose, onSave, question, questionnaireId, cu
                   placeholder={currentLanguage === 'fa' ? '(اختیاری)' : '(Optional)'}
                 />
               </div>
-            </div>
-          )}
-
-          {questionType === 'date' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-foreground">{currentLanguage === 'fa' ? 'ورودی تاریخ' : 'Date Input'}</label>
-              <Input type="date" className="w-full" />
-            </div>
-          )}
-
-          {questionType === 'datetime' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-foreground">{currentLanguage === 'fa' ? 'ورودی تاریخ و زمان' : 'Date & Time Input'}</label>
-              <Input type="datetime-local" className="w-full" />
             </div>
           )}
         </div>
