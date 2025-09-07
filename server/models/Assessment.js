@@ -25,6 +25,10 @@ const assessmentSchema = new mongoose.Schema({
       answer: {
         type: mongoose.Schema.Types.Mixed,
       },
+      score: {
+        type: Number,
+        default: 0,
+      }
     },
   ],
   riskScore: {

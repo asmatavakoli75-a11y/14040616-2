@@ -13,11 +13,22 @@ const questionSchema = new mongoose.Schema({
     default: 'text',
   },
   options: {
-    type: [String],
+    type: [{
+      text: {
+        type: String,
+        required: true,
+      },
+      score: {
+        type: Number,
+        required: true,
+        default: 0,
+      }
+    }],
     // Options are required only for specific question types
     required: function() {
       return ['multiple-choice', 'checkboxes', 'dropdown'].includes(this.questionType);
     },
+    default: [],
   },
   isRequired: {
     type: Boolean,
