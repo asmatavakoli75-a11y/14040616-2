@@ -1,7 +1,9 @@
 import sys
 import json
 import pandas as pd
-from pymongo import MongoClient
+import mysql.connector
+import os
+from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
@@ -9,28 +11,63 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
-import numpy as np
-import joblib
 import pickle
-from bson.binary import Binary
-from bson.objectid import ObjectId
+import numpy as np
 
-def train_model(model_id, model_type, file_path, test_size, random_state):
-    client = MongoClient('mongodb://localhost:27017/')
-    db = client['clbp-predictive-system']
+# Load environment variables from .env file
+dotenv.config(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+def get_db_connection():
+    """Establishes a connection to the MySQL database."""
+    try:
+        conn = mysql.connector.connect(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            database=os.getenv('DB_NAME'),
+            port=os.getenv('DB_PORT')
+        )
+        return conn
+    except mysql.connector.Error as err:
+        print(f"Error connecting to MySQL: {err}")
+        return None
+
+def update_model_status(model_id, status, performance=None, model_data=None):
+    """Updates the model's status, performance, and data in the database."""
+    conn = get_db_connection()
+    if not conn:
+        return
 
     try:
-        # --- 1. Load data from the provided file ---
+        cursor = conn.cursor()
+        query = """
+            UPDATE PredictionModels
+            SET status = %s, performance = %s, modelData = %s, updatedAt = NOW()
+            WHERE id = %s
+        """
+        # Convert performance dict to JSON string for storing
+        performance_json = json.dumps(performance) if performance else None
+
+        cursor.execute(query, (status, performance_json, model_data, model_id))
+        conn.commit()
+    except mysql.connector.Error as err:
+        print(f"Database update error: {err}")
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+def train_model(model_id, model_type, file_path, test_size, random_state):
+    """Main function to train and evaluate the model."""
+    try:
+        # --- 1. Load data ---
         if not file_path.endswith('.csv'):
             raise ValueError("Only .csv files are currently supported.")
-
         df = pd.read_csv(file_path)
 
         # --- 2. Preprocess Data ---
-        # Assuming the last column is the target variable
         X = df.iloc[:, :-1]
         y = df.iloc[:, -1]
-
         categorical_features = X.select_dtypes(include=['object']).columns
         if not categorical_features.empty:
             encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
@@ -48,7 +85,6 @@ def train_model(model_id, model_type, file_path, test_size, random_state):
             'GradientBoosting': GradientBoostingClassifier(random_state=random_state),
             'SVM': SVC(random_state=random_state, probability=True)
         }
-
         if model_type not in model_map:
             raise NotImplementedError(f"Model type '{model_type}' is not implemented.")
 
@@ -63,38 +99,20 @@ def train_model(model_id, model_type, file_path, test_size, random_state):
 
         # --- 6. Save Results ---
         serialized_model = pickle.dumps(model)
+        performance_metrics = {'accuracy': accuracy, 'auc': auc}
 
-        db.predictionmodels.update_one(
-            {'_id': model_id},
-            {
-                '$set': {
-                    'status': 'completed',
-                    'performance': {
-                        'accuracy': accuracy,
-                        'auc': auc
-                    },
-                    'modelData': Binary(serialized_model)
-                }
-            }
-        )
-
-        print(json.dumps({"status": "success", "modelId": str(model_id)}))
+        update_model_status(model_id, 'completed', performance=performance_metrics, model_data=serialized_model)
+        print(json.dumps({"status": "success", "modelId": model_id}))
 
     except Exception as e:
-        db.predictionmodels.update_one(
-            {'_id': model_id},
-            {'$set': {'status': 'failed', 'performance': {'error': str(e)}}}
-        )
-        print(json.dumps({"status": "error", "message": str(e)}))
-    finally:
-        client.close()
+        error_message = str(e)
+        update_model_status(model_id, 'failed', performance={'error': error_message})
+        print(json.dumps({"status": "error", "message": error_message}))
 
 if __name__ == '__main__':
     if len(sys.argv) > 2:
-        model_id_str = sys.argv[1]
+        model_id = int(sys.argv[1]) # ID is now an integer
         config = json.loads(sys.argv[2])
-
-        model_id = ObjectId(model_id_str)
 
         model_type = config.get('modelType', 'LogisticRegression')
         file_path = config.get('filePath')

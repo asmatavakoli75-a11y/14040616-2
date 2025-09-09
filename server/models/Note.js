@@ -1,22 +1,36 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/db.js';
 
-const noteSchema = new mongoose.Schema({
-  patient: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User',
+const Note = sequelize.define('Note', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
-  author: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User',
+  // Foreign key for the User this note is about (the patient)
+  patientId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id',
+    },
+  },
+  // Foreign key for the User who wrote the note (the author)
+  authorId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id',
+    },
   },
   text: {
-    type: String,
-    required: true,
+    type: DataTypes.TEXT, // TEXT is more suitable for long content
+    allowNull: false,
   },
-}, { timestamps: true });
-
-const Note = mongoose.model('Note', noteSchema);
+}, {
+  timestamps: true,
+});
 
 export default Note;

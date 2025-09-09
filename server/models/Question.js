@@ -1,66 +1,51 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/db.js';
 
-const questionSchema = new mongoose.Schema({
+const Question = sequelize.define('Question', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
   text: {
-    type: String,
-    required: true,
-    trim: true,
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   questionType: {
-    type: String,
-    required: true,
-    enum: ['text', 'paragraph', 'multiple-choice', 'checkboxes', 'dropdown', 'date', 'datetime', 'linear-scale'],
-    default: 'text',
+    type: DataTypes.ENUM('text', 'paragraph', 'multiple-choice', 'checkboxes', 'dropdown', 'date', 'datetime', 'linear-scale'),
+    allowNull: false,
+    defaultValue: 'text',
   },
+  // Storing options as JSON. Complex validation (e.g., required for certain types)
+  // must be handled at the application/controller level.
   options: {
-    type: [{
-      text: {
-        type: String,
-        required: true,
-      },
-      score: {
-        type: Number,
-        required: true,
-        default: 0,
-      }
-    }],
-    // Options are required only for specific question types
-    required: function() {
-      return ['multiple-choice', 'checkboxes', 'dropdown'].includes(this.questionType);
-    },
-    default: [],
+    type: DataTypes.JSON,
+    allowNull: true,
   },
   isRequired: {
-    type: Boolean,
-    default: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
-  // Add min and max for linear scale
+  // Scale fields are nullable because they are only required for 'linear-scale' type.
+  // This logic must be enforced in the application layer.
   minScale: {
-    type: Number,
-    required: function() {
-      return this.questionType === 'linear-scale';
-    },
-    default: 1,
+    type: DataTypes.INTEGER,
+    allowNull: true,
   },
   maxScale: {
-    type: Number,
-    required: function() {
-      return this.questionType === 'linear-scale';
-    },
-    default: 5,
+    type: DataTypes.INTEGER,
+    allowNull: true,
   },
   minLabel: {
-    type: String,
-    trim: true,
-    default: '',
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   maxLabel: {
-    type: String,
-    trim: true,
-    default: '',
+    type: DataTypes.STRING,
+    allowNull: true,
   },
-}, { timestamps: true });
-
-const Question = mongoose.model('Question', questionSchema);
+}, {
+  timestamps: true,
+});
 
 export default Question;

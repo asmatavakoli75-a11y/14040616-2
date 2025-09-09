@@ -1,41 +1,46 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/db.js';
 
-const assessmentSchema = new mongoose.Schema({
-  patient: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'User',
+const Assessment = sequelize.define('Assessment', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
-  questionnaire: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'Questionnaire',
+  // Foreign key for the User model (the patient)
+  patientId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users', // Note: Sequelize defaults to plural table names
+      key: 'id',
+    }
+  },
+  // Foreign key for the Questionnaire model
+  questionnaireId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Questionnaires',
+      key: 'id',
+    }
   },
   status: {
-    type: String,
-    enum: ['pending', 'in-progress', 'completed'],
-    default: 'pending',
+    type: DataTypes.ENUM('pending', 'in-progress', 'completed'),
+    defaultValue: 'pending',
   },
-  responses: [
-    {
-      question: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Question',
-      },
-      answer: {
-        type: mongoose.Schema.Types.Mixed,
-      },
-      score: {
-        type: Number,
-        default: 0,
-      }
-    },
-  ],
+  // Storing array of response objects as JSON.
+  // A better long-term solution is a separate 'Responses' table.
+  responses: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
   riskScore: {
-    type: Number,
+    type: DataTypes.FLOAT,
+    allowNull: true,
   },
-}, { timestamps: true });
-
-const Assessment = mongoose.model('Assessment', assessmentSchema);
+}, {
+  timestamps: true,
+});
 
 export default Assessment;

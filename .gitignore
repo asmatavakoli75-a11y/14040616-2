@@ -6,3 +6,14 @@ package-lock.json
 .vscode/
 .idea/
 vite.config.*s.*
+
+# Log files
+*.log
+
+# Runtime artifacts
+installer.lock
+server/installer.lock
+
+# Environment files
+.env
+server/.env
