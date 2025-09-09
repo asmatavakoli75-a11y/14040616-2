@@ -1,39 +1,43 @@
 import express from 'express';
-import Assessment from '../models/Assessment.js';
-import Question from '../models/Question.js';
-import mongoose from 'mongoose';
+import db from '../models/index.js';
 
+const { Assessment, Question, Questionnaire, User } = db;
 const router = express.Router();
+
+// Helper function for error responses
+const handleError = (res, error, message = 'Server Error', statusCode = 500) => {
+  console.error(message, error);
+  res.status(statusCode).json({ message });
+};
 
 // @desc    Get assessments by patient ID
 // @route   GET /api/assessments/patient/:patientId
 // @access  Private
 router.get('/patient/:patientId', async (req, res) => {
   try {
-    const assessments = await Assessment.find({ patientId: req.params.patientId })
-      .populate({
-        path: 'questionnaireId',
-        select: 'title description questions',
-        populate: {
-          path: 'questions',
-          model: 'Question',
+    const assessments = await Assessment.findAll({
+      where: { patientId: req.params.patientId },
+      include: [
+        {
+          model: Questionnaire,
+          as: 'questionnaire',
+          include: { model: Question, as: 'Questions' }
         },
-      })
-      .populate({
-        path: 'responses.questionId',
-        model: 'Question',
-        select: 'text',
-      })
-      .sort({ createdAt: -1 });
+        {
+          model: User,
+          as: 'patient',
+          attributes: ['id', 'firstName', 'lastName', 'email']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
 
     if (!assessments) {
       return res.status(404).json({ message: 'No assessments found for this patient' });
     }
-
     res.json(assessments);
   } catch (error) {
-    console.error('Error fetching assessments:', error);
-    res.status(500).json({ message: 'Server Error' });
+    handleError(res, error, 'Error fetching assessments');
   }
 });
 
@@ -49,49 +53,50 @@ router.post('/', async (req, res) => {
     }
 
     const questionIds = Object.keys(responses);
-    const questions = await Question.find({ '_id': { $in: questionIds } });
-    const questionMap = new Map(questions.map(q => [q._id.toString(), q]));
+    const questions = await Question.findAll({ where: { id: questionIds } });
+    const questionMap = new Map(questions.map(q => [q.id.toString(), q]));
 
     let totalScore = 0;
+    const responsesArray = [];
 
-    const responsesArray = Object.entries(responses).map(([questionId, answer]) => {
+    for (const [questionId, answer] of Object.entries(responses)) {
       const question = questionMap.get(questionId);
+      if (!question) continue;
+
       let score = 0;
-      if (question && ['multiple-choice', 'checkboxes', 'dropdown'].includes(question.questionType)) {
+      if (['multiple-choice', 'checkboxes', 'dropdown'].includes(question.questionType)) {
         const answers = Array.isArray(answer) ? answer : [answer];
         for (const ans of answers) {
-            const chosenOption = question.options.find(opt => opt.text === ans);
-            if (chosenOption) {
-                score += chosenOption.score;
-            }
+          const chosenOption = question.options.find(opt => opt.text === ans);
+          if (chosenOption) {
+            score += chosenOption.score || 0;
+          }
         }
-      } else if (question && question.questionType === 'linear-scale') {
+      } else if (question.questionType === 'linear-scale') {
         score = Number(answer) || 0;
       }
-
       totalScore += score;
 
-      return {
-        questionId: new mongoose.Types.ObjectId(questionId),
+      // Denormalize: add question text to the response object for easier retrieval
+      responsesArray.push({
+        questionId: parseInt(questionId, 10),
+        questionText: question.text,
         answer,
         score,
-      };
-    });
+      });
+    }
 
-    const newAssessment = new Assessment({
+    const newAssessment = await Assessment.create({
       patientId,
       questionnaireId,
       responses: responsesArray,
-      riskScore: totalScore, // Using the existing riskScore field for total score
+      riskScore: totalScore,
       status: 'completed',
-      completedAt: new Date(),
     });
 
-    const savedAssessment = await newAssessment.save();
-    res.status(201).json(savedAssessment);
+    res.status(201).json(newAssessment);
   } catch (error) {
-    console.error('Error creating assessment:', error);
-    res.status(500).json({ message: 'Server Error' });
+    handleError(res, error, 'Error creating assessment', 400);
   }
 });
 
@@ -99,32 +104,34 @@ router.post('/', async (req, res) => {
 // @route   GET /api/assessments/export
 // @access  Private/Admin
 router.get('/export', async (req, res) => {
-  try {
-    const assessments = await Assessment.find({})
-      .populate('patientId', 'firstName lastName email')
-      .populate('questionnaireId', 'title');
+    try {
+        const assessments = await Assessment.findAll({
+            include: [
+                { model: User, as: 'patient', attributes: ['firstName', 'lastName', 'email'] },
+                { model: Questionnaire, as: 'questionnaire', attributes: ['title'] }
+            ]
+        });
 
-    let csv = 'PatientFirstName,PatientLastName,PatientEmail,QuestionnaireTitle,TotalScore,CompletedAt\n';
+        let csv = 'PatientFirstName,PatientLastName,PatientEmail,QuestionnaireTitle,TotalScore,CompletedAt\n';
 
-    for (const assessment of assessments) {
-      const patientFirstName = assessment.patientId ? assessment.patientId.firstName : 'N/A';
-      const patientLastName = assessment.patientId ? assessment.patientId.lastName : 'N/A';
-      const patientEmail = assessment.patientId ? assessment.patientId.email : 'N/A';
-      const questionnaireTitle = assessment.questionnaireId ? assessment.questionnaireId.title : 'N/A';
-      const totalScore = assessment.riskScore || 0;
-      const completedAt = assessment.completedAt ? assessment.completedAt.toISOString() : 'N/A';
+        for (const assessment of assessments) {
+            const patientFirstName = assessment.patient ? assessment.patient.firstName : 'N/A';
+            const patientLastName = assessment.patient ? assessment.patient.lastName : 'N/A';
+            const patientEmail = assessment.patient ? assessment.patient.email : 'N/A';
+            const questionnaireTitle = assessment.questionnaire ? assessment.questionnaire.title : 'N/A';
+            const totalScore = assessment.riskScore || 0;
+            const completedAt = assessment.createdAt ? new Date(assessment.createdAt).toISOString() : 'N/A';
 
-      csv += `${patientFirstName},${patientLastName},${patientEmail},"${questionnaireTitle}",${totalScore},${completedAt}\n`;
+            csv += `${patientFirstName},${patientLastName},${patientEmail},"${questionnaireTitle}",${totalScore},${completedAt}\n`;
+        }
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment('assessments_export.csv');
+        res.send(csv);
+
+    } catch (error) {
+        handleError(res, error, 'Error exporting assessments');
     }
-
-    res.header('Content-Type', 'text/csv');
-    res.attachment('assessments_export.csv');
-    res.send(csv);
-
-  } catch (error) {
-    console.error('Error exporting assessments:', error);
-    res.status(500).json({ message: 'Server Error' });
-  }
 });
 
 export default router;

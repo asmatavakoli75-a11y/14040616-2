@@ -1,144 +1,80 @@
-import express from 'express';
-import dotenv from 'dotenv';
-// ---- Robust env loader & fallbacks ----
-// Some environments may fail to parse .env (e.g., special characters in JWT_SECRET).
-// We guard against that and provide safe fallbacks so the server doesn't crash.
-try {
-  const result = dotenv.config();
-  if (result?.error) {
-    console.error('dotenv config error:', result.error);
-  }
-} catch (e) {
-  console.error('dotenv threw during config:', e);
-}
-const FALLBACK_ENV = {
-  PORT: '3001',
-  MONGO_URI: 'mongodb://localhost:27017/clbp-predictive-system',
-  JWT_SECRET: 'dev-fallback-secret'
-};
-for (const [k, v] of Object.entries(FALLBACK_ENV)) {
-  if (!process.env[k] || String(process.env[k]).trim() === '') {
-    process.env[k] = v;
-  }
-}
-// Optional extra: admin restart token to gracefully exit (nodemon/system manager will restart)
-if (!process.env.ADMIN_RESTART_TOKEN) process.env.ADMIN_RESTART_TOKEN = 'dev-restart-key';
-// ---------------------------------------
+// Use a fully async startup sequence to guarantee env vars are loaded first.
 
-import fs from 'fs';
-import path from 'path';
-import connectDB from './config/db.js';
-import installerRoutes from './routes/installer.js';
-import questionnaireRoutes from './routes/questionnaires.js';
-import settingsRoutes from './routes/settings.js';
-import reportsRoutes from './routes/reports.js';
-import userRoutes from './routes/users.js';
-import predictRoutes from './routes/predict.js';
-import dataRoutes from './routes/data.js';
-import dashboardRoutes from './routes/dashboard.js';
-import assessmentRoutes from './routes/assessments.js';
-import noteRoutes from './routes/notes.js';
-import analysisRoutes from './routes/analysis.js';
-import Setting from './models/Setting.js';
+async function main() {
+    // --- 1. Load Environment Variables ---
+    const dotenv = await import('dotenv');
+    dotenv.config();
 
-// Load env vars
-dotenv.config();
+    // --- 2. Load Core Dependencies ---
+    const express = (await import('express')).default;
+    const fs = (await import('fs')).default;
+    const path = (await import('path')).default;
 
-const app = express();
-// Admin restart endpoint: POST /api/admin/restart  (requires token)
-app.post('/api/admin/restart', (req, res) => {
-  try {
-    const token = req.query.token || req.headers['x-restart-token'];
-    const expected = process.env.ADMIN_RESTART_TOKEN;
-    if (!token || token !== expected) {
-      return res.status(403).json({ error: 'forbidden' });
+    // --- 3. Apply Fallbacks ---
+    const FALLBACK_ENV = {
+      PORT: '3001', DB_HOST: '127.0.0.1', DB_USER: 'root',
+      DB_PASSWORD: 'password', DB_NAME: 'clbp_db', DB_PORT: '3306',
+      DB_DIALECT: 'mysql', JWT_SECRET: 'dev-fallback-secret',
+      ADMIN_RESTART_TOKEN: 'dev-restart-key'
+    };
+    for (const [k, v] of Object.entries(FALLBACK_ENV)) {
+        if (!process.env[k] || String(process.env[k]).trim() === '') {
+            process.env[k] = v;
+        }
     }
-    // Touch a file to trigger nodemon file-watch restart
-    try {
-      const fs = require('fs');
-    } catch (e) {}
-    try {
-      // ESM import fallback for fs
-      import('fs').then(fsmod => {
-        try {
-          fsmod.writeFileSync(new URL('./restart.trigger', import.meta.url), String(Date.now()));
-        } catch {}
-      });
-    } catch {}
 
-    res.json({ ok: true, message: 'Restarting process now' });
-    setTimeout(() => {
-      console.log('Admin-initiated restart via /api/admin/restart');
-      // Exit with non-zero so nodemon definitely restarts
-      process.exit(1);
-    }, 50);
-  } catch (e) {
-    console.error('Restart endpoint error:', e);
-    res.status(500).json({ error: 'restart_failed', details: e?.message });
-  }
-});
+    // --- 4. Initialize Database Connection ---
+    const { connectDB, default: sequelize } = await import('./config/db.js');
 
-// Admin diagnostic: GET /api/admin/env (redacts secrets)
-app.get('/api/admin/env', (req, res) => {
-  const redacted = (v) => (typeof v === 'string' && v.length > 6 ? v.slice(0,3) + '***' + v.slice(-3) : v);
-  const data = {
-    PORT: process.env.PORT,
-    MONGO_URI: redacted(process.env.MONGO_URI),
-    JWT_SECRET: redacted(process.env.JWT_SECRET),
-    MONGOOSE_DEBUG: process.env.MONGOOSE_DEBUG,
-    ADMIN_RESTART_TOKEN: redacted(process.env.ADMIN_RESTART_TOKEN),
-  };
-  res.json({ ok: true, env: data });
-});
+    // --- 5. Initialize Express App ---
+    const app = express();
+    app.use(express.json());
+    const port = process.env.PORT || 3001;
 
-const port = process.env.PORT || 3001;
-app.use(express.json());
+    // --- 6. Define Helper and Status Routes ---
+    const isInstalled = () => {
+        const currentDir = path.dirname(new URL(import.meta.url).pathname);
+        return fs.existsSync(path.join(currentDir, 'installer.lock'));
+    };
 
-// Determine if the app is installed by checking for the lock file
-const isInstalled = () => {
-    const currentDir = path.dirname(new URL(import.meta.url).pathname);
-    return fs.existsSync(path.join(currentDir, 'installer.lock'));
-};
+    const installerRoutes = (await import('./routes/installer.js')).default;
+    app.use('/api/installer', installerRoutes);
+    app.get('/api/status', (req, res) => {
+        res.json({ installed: isInstalled() });
+    });
 
-// Installer and status routes are always available
-app.use('/api/installer', installerRoutes);
-app.get('/api/status', (req, res) => {
-    res.json({ installed: isInstalled() });
-});
-
-
-const startServer = async () => {
+    // --- 7. Start Server Logic ---
     if (!isInstalled()) {
         console.log('Application not installed. Running in installer mode.');
-        // If not installed, we only want the installer routes to be available.
-        // The main app routes will not be mounted.
     } else {
         try {
             console.log('Application is installed. Starting main server...');
-            // Connect to database
             await connectDB();
+            await sequelize.sync();
+            console.log('Database synchronized.');
 
-            // Seed initial settings
-            await Setting.seedInitialSettings();
-
-            // Mount main application API Routes
-            app.use('/api/questionnaires', questionnaireRoutes);
-            app.use('/api/settings', settingsRoutes);
-            app.use('/api/reports', reportsRoutes);
-            app.use('/api/users', userRoutes);
-            app.use('/api/predict', predictRoutes);
-            app.use('/api/data', dataRoutes);
-            app.use('/api/dashboard', dashboardRoutes);
-            app.use('/api/assessments', assessmentRoutes);
-            app.use('/api/notes', noteRoutes);
-            app.use('/api/analysis', analysisRoutes);
-
+            // Dynamically import and mount main routes
+            const routes = [
+                { path: '/api/questionnaires', module: './routes/questionnaires.js' },
+                { path: '/api/settings', module: './routes/settings.js' },
+                { path: '/api/reports', module: './routes/reports.js' },
+                { path: '/api/users', module: './routes/users.js' },
+                { path: '/api/predict', module: './routes/predict.js' },
+                { path: '/api/data', module: './routes/data.js' },
+                { path: '/api/dashboard', module: './routes/dashboard.js' },
+                { path: '/api/assessments', module: './routes/assessments.js' },
+                { path: '/api/notes', module: './routes/notes.js' },
+                { path: '/api/analysis', module: './routes/analysis.js' },
+            ];
+            for (const route of routes) {
+                const { default: router } = await import(route.module);
+                app.use(route.path, router);
+            }
             console.log('Main application routes mounted.');
 
         } catch (error) {
             console.error('Failed to start main application:', error);
-            // We don't exit the process here, so the installer routes remain available
-            // in case the database connection fails after installation.
+            process.exit(1); // Exit if the main app fails to start
         }
     }
 
@@ -148,6 +84,9 @@ const startServer = async () => {
             console.log('Navigate to the frontend to begin installation.');
         }
     });
-};
+}
 
-startServer();
+main().catch(error => {
+    console.error("Critical error during server startup:", error);
+    process.exit(1);
+});

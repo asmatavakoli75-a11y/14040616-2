@@ -1,21 +1,22 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/db.js';
 
-const questionnaireSchema = new mongoose.Schema({
+const Questionnaire = sequelize.define('Questionnaire', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
   title: {
-    type: String,
-    required: true,
-    trim: true,
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   description: {
-    type: String,
-    trim: true,
+    type: DataTypes.STRING,
+    allowNull: true, // Assuming description can be optional
   },
-  questions: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Question',
-  }],
-}, { timestamps: true });
-
-const Questionnaire = mongoose.model('Questionnaire', questionnaireSchema);
+}, {
+  timestamps: true, // This will add createdAt and updatedAt fields
+});
 
 export default Questionnaire;

@@ -1,21 +1,36 @@
 import express from 'express';
-import Note from '../models/Note.js';
+import db from '../models/index.js';
 
+const { Note, User } = db;
 const router = express.Router();
+
+// Helper function for error responses
+const handleError = (res, error, message = 'Server Error', statusCode = 500) => {
+  console.error(message, error);
+  res.status(statusCode).json({ message });
+};
 
 // @desc    Get notes by patient ID
 // @route   GET /api/notes/patient/:patientId
 // @access  Private
 router.get('/patient/:patientId', async (req, res) => {
   try {
-    const notes = await Note.find({ patientId: req.params.patientId }).sort({ createdAt: -1 });
+    const notes = await Note.findAll({
+      where: { patientId: req.params.patientId },
+      include: {
+        model: User,
+        as: 'author',
+        attributes: ['id', 'firstName', 'lastName']
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
     if (!notes) {
       return res.status(404).json({ message: 'No notes found for this patient' });
     }
     res.json(notes);
   } catch (error) {
-    console.error('Error fetching notes:', error);
-    res.status(500).json({ message: 'Server Error' });
+    handleError(res, error, 'Error fetching notes');
   }
 });
 
@@ -24,23 +39,23 @@ router.get('/patient/:patientId', async (req, res) => {
 // @access  Private
 router.post('/', async (req, res) => {
   try {
-    const { patientId, content, category } = req.body;
+    // Assuming authorId comes from auth middleware, e.g., req.user.id
+    // As the original code did not specify the author, this is an assumption.
+    const { patientId, text, authorId } = req.body;
 
-    if (!patientId || !content) {
-      return res.status(400).json({ message: 'Patient ID and content are required' });
+    if (!patientId || !text || !authorId) {
+      return res.status(400).json({ message: 'Patient ID, text, and author ID are required' });
     }
 
-    const newNote = new Note({
+    const newNote = await Note.create({
       patientId,
-      content,
-      category,
+      authorId,
+      text,
     });
 
-    const savedNote = await newNote.save();
-    res.status(201).json(savedNote);
+    res.status(201).json(newNote);
   } catch (error) {
-    console.error('Error creating note:', error);
-    res.status(500).json({ message: 'Server Error' });
+    handleError(res, error, 'Error creating note', 400);
   }
 });
 

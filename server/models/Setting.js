@@ -1,34 +1,29 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/db.js';
 
-const settingSchema = new mongoose.Schema({
+const Setting = sequelize.define('Setting', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
   key: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true,
   },
+  // Using JSON type to accommodate various structures for settings,
+  // similar to Mongoose's 'Mixed' type.
   value: {
-    type: mongoose.Schema.Types.Mixed,
-    required: true,
+    type: DataTypes.JSON,
+    allowNull: false,
   },
-}, { timestamps: true });
+}, {
+  timestamps: true,
+});
 
-// Seed initial settings if they don't exist
-settingSchema.statics.seedInitialSettings = async function() {
-  const settingsToSeed = [
-    { key: 'appName', value: 'CLBP Predictive System' },
-    { key: 'emergencyContact', value: { name: 'Default Emergency Contact', phone: '123-456-7890' } },
-  ];
-
-  for (const setting of settingsToSeed) {
-    const existing = await this.findOne({ key: setting.key });
-    if (!existing) {
-      await this.create(setting);
-      console.log(`Seeded setting: ${setting.key}`);
-    }
-  }
-};
-
-const Setting = mongoose.model('Setting', settingSchema);
+// Note: The original static method 'seedInitialSettings' should be
+// re-implemented as a separate seeding script or function that runs
+// after the database models are synchronized.
 
 export default Setting;
